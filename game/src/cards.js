@@ -65,7 +65,16 @@ export function tideBonus(def, tide) {
   return 0;
 }
 
-// Effective power of a card on the current tide.
-export function effectivePower(def, tide) {
-  return def.power + tideBonus(def, tide);
+// The chain bonus: playing cards of the same element one after another
+// builds momentum — the next card of that element strikes +1 for each
+// card already in the chain, up to +2. `chain` is { element, count } or
+// null when no chain is running.
+export function chainBonus(def, chain) {
+  if (!chain || chain.element !== def.element) return 0;
+  return Math.min(chain.count, 2);
+}
+
+// Effective power of a card on the current tide and chain.
+export function effectivePower(def, tide, chain = null) {
+  return def.power + tideBonus(def, tide) + chainBonus(def, chain);
 }

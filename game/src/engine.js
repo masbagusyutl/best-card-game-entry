@@ -48,6 +48,7 @@ export function newGame(seed) {
     you: newPlayer(buildDeck(rand), START_HAND),
     ai: newPlayer(buildDeck(rand), START_HAND),
     table: { you: [], ai: [] }, // cards played this round, for the view
+    chain: { element: null, count: 0 }, // tide chain: consecutive same-element plays this turn
     stats: { cardsPlayed: 0, damageDealt: 0, turnsPlayed: 0 },
   };
   drawCards(game, game.you, START_HAND);
@@ -85,11 +86,12 @@ export function drawCards(game, player, n) {
   }
 }
 
-// Begin `who`'s turn: fresh shells, one draw, empty the table.
+// Begin `who`'s turn: fresh shells, one draw, empty the table and chain.
 export function startTurn(game, who) {
   const player = sideOf(game, who);
   game.active = who;
   game.table = { you: [], ai: [] };
+  game.chain = { element: null, count: 0 };
   player.shells = Math.min(MAX_SHELLS, player.shells + SHELLS_PER_TURN);
   drawCards(game, player, 1);
   game.stats.turnsPlayed += 1;
@@ -113,12 +115,19 @@ export function playCard(game, who, i) {
   const foe = sideOf(game, otherOf(who));
   const id = player.hand[i];
   const def = cardDef(id);
-  const power = effectivePower(def, game.tide);
+  // Power is read on the tide and chain as they stand before this play.
+  const power = effectivePower(def, game.tide, game.chain);
+  const chained = game.chain.element === def.element ? Math.min(game.chain.count, 2) : 0;
 
   player.shells -= def.cost;
   player.hand.splice(i, 1);
   player.discard.push(id);
   game.table[who].push({ id, power, tideAfter: null });
+
+  // The chain grows: same element as the last play extends it, anything
+  // else starts a fresh one.
+  if (game.chain.element === def.element) game.chain.count += 1;
+  else game.chain = { element: def.element, count: 1 };
 
   // The tide moves first: the bonus was read on the tide before the push.
   game.tide = applyTidePush(game.tide, def.tide);
@@ -130,7 +139,7 @@ export function playCard(game, who, i) {
   foe.hp -= power;
   game.stats.cardsPlayed += 1;
   if (who === 'you') game.stats.damageDealt += power;
-  say(game, `${who === 'you' ? 'You play' : 'Mirelle plays'} ${def.name} for ${power} (tide now ${game.tide >= 0 ? '+' : ''}${game.tide}).`);
+  say(game, `${who === 'you' ? 'You play' : 'Mirelle plays'} ${def.name} for ${power}${chained > 0 ? ` (chain +${chained})` : ''} (tide now ${game.tide >= 0 ? '+' : ''}${game.tide}).`);
 
   // Then its effect fires.
   if (def.effect === 'draw1') drawCards(game, player, 1);
@@ -191,6 +200,7 @@ export function snapshot(game) {
     you: { hp: game.you.hp, maxHp: game.you.maxHp, shells: game.you.shells, hand: game.you.hand.slice(), deck: game.you.deck.length, discard: game.you.discard.length },
     ai: { hp: game.ai.hp, maxHp: game.ai.maxHp, shells: game.ai.shells, hand: game.ai.hand.length, deck: game.ai.deck.length, discard: game.ai.discard.length },
     table: { you: game.table.you.slice(), ai: game.table.ai.slice() },
+    chain: { ...game.chain },
     stats: { ...game.stats },
   };
 }

@@ -9,12 +9,16 @@
 import { cardDef, effectivePower } from './cards.js';
 import { favouredElement } from './tide.js';
 
-// Score one card in hand on the current tide. Higher is better.
+// Score one card in hand on the current tide and chain. Higher is better.
 export function scoreCard(game, who, index) {
   const player = who === 'you' ? game.you : game.ai;
   const def = cardDef(player.hand[index]);
-  const power = effectivePower(def, game.tide);
+  const power = effectivePower(def, game.tide, game.chain);
   let score = power * 2;
+
+  // Continuing the chain is worth extra: the bonus compounds, and a
+  // chain kept alive denies the other side a clean tide read.
+  if (game.chain.element === def.element) score += 1.5;
 
   // Tide positioning: pushing the tide toward an extreme you favour is
   // worth almost a hit; pushing it toward the enemy's extreme is costly.

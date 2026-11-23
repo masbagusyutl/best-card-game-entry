@@ -105,6 +105,7 @@ body[data-tide="low"] { background:
   font-family: 'Segoe UI', sans-serif;
 }
 .gauge-label { margin-top: 8px; font-size: 15px; letter-spacing: 1px; color: #ffe9bd; }
+.chain-line { margin-top: 2px; font-size: 14px; letter-spacing: 1px; color: #9fd8c9; font-family: 'Segoe UI', sans-serif; }
 .banner { text-align: center; font-size: 17px; font-style: italic; color: #cfe8de; min-height: 22px; }
 
 /* ---- played cards ---- */

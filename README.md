@@ -4,7 +4,7 @@
 [![rank](https://make.fun/badge/best-card-game-20261122-1826/masbagusyutl/best-card-game-entry/rank.svg)](https://make.fun/bounty/best-card-game-20261122-1826/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=best-card-game-20261122-1826)
 [![reward](https://make.fun/badge/best-card-game-20261122-1826/masbagusyutl/best-card-game-entry/reward.svg)](https://make.fun/bounty/best-card-game-20261122-1826?utm_source=github&utm_medium=readme&utm_campaign=best-card-game-20261122-1826)
 
-Tidebound — Duel of the Rising Tide: a complete, original two-player card duel in the browser. Every card moves a shared tide; at high tide Sun cards strike +2, at low tide Moon cards strike +2, and Storm cards bend the tide itself. You duel Captain Mirelle, harbour against harbour, with a hand of readable cards, a visible tide gauge, and a win and a loss screen.
+Tidebound — Duel of the Rising Tide: a complete, original two-player card duel in the browser. Every card moves a shared tide; at high tide Sun cards strike +2, at low tide Moon cards strike +2, and Storm cards bend the tide itself. Cards of one element played in a row build a Tide Chain (+1 per link, up to +2). You duel Captain Mirelle, harbour against harbour, with a hand of readable cards, a visible tide gauge, and a win and a loss screen.
 
 ## Run it
 
@@ -23,6 +23,8 @@ Then open http://localhost:8080 in a desktop browser. No build step, no network 
 You duel **Captain Mirelle**, harbour against harbour (30 ♥ each). First harbour to 0 loses.
 
 **The tide is everything.** A shared tide gauge runs from −5 (low, moonlit) to +5 (high, sunlit). Every card moves it when played. At **high tide (+3 or more)** Sun cards strike +2; at **low tide (−3 or less)** Moon cards strike +2. Play to own the tide, not just to hit hard.
+
+**Tide Chain.** Cards of the same element played one after another in a turn build momentum: the next card of that element strikes +1 per card already in the chain, up to +2. The chain stacks with the tide bonus — a sequenced hand hits far harder than its cards alone — and any other element breaks it. The table shows the live chain under the gauge, and every card in hand previews the power it would strike for.
 
 **Each turn:** draw 1 card, gain 3 shells ● (max 10), play as many cards as you can afford, then end your turn. Drawing from an empty deck costs 2 ♥ (fatigue).
 
@@ -52,7 +54,7 @@ Elements are told apart by colour **and** shape (☀ / ☾ / ⛈ glyph on every 
 - `game/src/audio.js` — synthesised sound effects (WebAudio, no files)
 - `game/src/view.js` — DOM rendering, input, overlays, screenshot staging
 - `game/src/main.js` — boot, save/pause/keyboard, `?shot=` scenes
-- `tests/playthrough.mjs` — headless full-match playthrough: 30/30 matches end with a winner, 0 invariant failures, same seed replays identically
+- `tests/playthrough.mjs` — headless full-match playthrough: 40/40 matches end with a winner, 0 invariant failures, same seed replays identically, plus Tide Chain unit checks
 - `main.ts` — the hand-in program: copies `game/` + `screenshots/` to `/output` and writes `dossier.json`
 - `serve.ts` — local static server for play-testing
 - `shots.json` — the four screenshot scenes (`?shot=start|play|lowtide|victory`)
@@ -64,6 +66,6 @@ Four real renders of the game running in desktop Chrome, under `screenshots/`: t
 ## Checks
 
 ```sh
-node tests/playthrough.mjs   # 30 headless matches, invariants + determinism
+node tests/playthrough.mjs   # 40 headless matches, invariants + determinism + chain checks
 mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts   # hand-in program, run twice: same bytes
 ```

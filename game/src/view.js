@@ -8,7 +8,7 @@
 // in a deep-sea palette with gold trim and a tide gauge you can read
 // from across the room.
 
-import { cardDef, effectivePower } from './cards.js';
+import { cardDef, effectivePower, ELEMENTS } from './cards.js';
 import { tideLabel } from './tide.js';
 import { snapshot } from './engine.js';
 import { sfx, setMuted, isMuted } from './audio.js';
@@ -29,10 +29,13 @@ function tideArrow(push) {
 }
 
 // One card face. `playable` marks cards the player may click right now;
-// `spotlight` is the staged-screenshot highlight.
-export function cardNode(id, tide, { playable = false, spotlight = false, small = false } = {}) {
+// `spotlight` is the staged-screenshot highlight. `powerOverride` shows
+// the power a played card actually struck with (tide + chain at the
+// moment it was played); otherwise the power is the live value on the
+// current tide and chain, so the hand previews what a card would hit for.
+export function cardNode(id, tide, { playable = false, spotlight = false, small = false, powerOverride = null, chain = null } = {}) {
   const def = cardDef(id);
-  const power = effectivePower(def, tide);
+  const power = powerOverride !== null ? powerOverride : effectivePower(def, tide, chain);
   const boosted = power > def.power;
   const card = el('div', `card el-${def.element}${playable ? ' playable' : ''}${spotlight ? ' spotlight' : ''}${small ? ' small' : ''}`);
   card.dataset.cardId = id;
@@ -118,6 +121,8 @@ export class View {
     gauge.appendChild(this.gaugeBar);
     this.gaugeLabel = el('div', 'gauge-label', '');
     gauge.appendChild(this.gaugeLabel);
+    this.chainNode = el('div', 'chain-line', '');
+    gauge.appendChild(this.chainNode);
     middle.appendChild(gauge);
 
     this.banner = el('div', 'banner', '');
@@ -188,6 +193,12 @@ export class View {
     this.gaugeMarker.style.left = `${pct}%`;
     this.gaugeMarker.textContent = snap.tide >= 0 ? `+${snap.tide}` : `${snap.tide}`;
     this.gaugeLabel.textContent = tideLabel(snap.tide);
+    if (snap.chain && snap.chain.count > 0) {
+      const label = ELEMENTS[snap.chain.element].label;
+      this.chainNode.textContent = `🔗 Tide Chain: ${label} ×${snap.chain.count} — next ${label} +${Math.min(snap.chain.count, 2)}`;
+    } else {
+      this.chainNode.textContent = '🔗 Tide Chain: — play two of one element in a row to build it';
+    }
 
     // Banner
     if (snap.phase === 'over') {
@@ -201,7 +212,7 @@ export class View {
     // Played cards
     const fillPlayed = (node, plays) => {
       node.querySelectorAll('.card').forEach((c) => c.remove());
-      for (const p of plays) node.appendChild(cardNode(p.id, snap.tide, { small: true }));
+      for (const p of plays) node.appendChild(cardNode(p.id, snap.tide, { small: true, powerOverride: p.power }));
       if (plays.length === 0) node.appendChild(el('div', 'played-empty', '—'));
     };
     fillPlayed(this.playedAi, snap.table.ai);
@@ -219,7 +230,7 @@ export class View {
     snap.you.hand.forEach((id, i) => {
       const def = cardDef(id);
       const playable = snap.phase === 'play' && snap.active === 'you' && snap.you.shells >= def.cost;
-      const node = cardNode(id, snap.tide, { playable, spotlight: this.spotlightId === id });
+      const node = cardNode(id, snap.tide, { playable, spotlight: this.spotlightId === id, chain: snap.chain });
       node.addEventListener('click', () => this.cb.onPlay(i));
       this.handNode.appendChild(node);
     });
@@ -260,6 +271,9 @@ export class View {
             + '<b>The tide is everything.</b> Every card moves the shared tide (−5 to +5). '
             + 'At <b>high tide (+3 or more)</b> Sun cards strike +2; at <b>low tide (−3 or less)</b> Moon cards strike +2. '
             + 'Play to own the tide, not just to hit hard.<br><br>'
+            + '<b>Tide Chain:</b> playing cards of the same element one after another builds momentum — '
+            + 'the next card of that element strikes +1 per card already in the chain, up to +2. '
+            + 'A chain stacks with the tide bonus, so a well-sequenced hand hits far harder than its cards alone.<br><br>'
             + 'Each turn: draw 1, gain 3 shells ● (max 10), play as many cards as you can afford, then end your turn. '
             + 'Storm cards bend the tide itself — flip it, still it, or surge it to an extreme.<br><br>'
             + 'First harbour to 0 loses. Drawing from an empty deck costs 2 ♥.<br><br>'
@@ -324,6 +338,7 @@ export function stageShot(game, name) {
     g.table.ai = [{ id: 'deep-current', power: 3, tideAfter: 0 }];
     g.you.hand = ['solar-flare', 'sunken-gold', 'coral-spark', 'maelstrom', 'deep-current'];
     g.ai.hand = ['x', 'x', 'x', 'x'];
+    g.chain = { element: 'sun', count: 1 };
     g.log.push('Turn 1 — You play Ember Cutlass for 3 (tide now +1).');
     return g;
   }
@@ -335,11 +350,12 @@ export function stageShot(game, name) {
     g.ai.hp = 14;
     g.you.shells = 5;
     g.turn = 5;
-    g.table.you = [{ id: 'ember-cutlass', power: 3, tideAfter: 3 }, { id: 'sunken-gold', power: 2, tideAfter: 4 }];
+    g.table.you = [{ id: 'ember-cutlass', power: 5, tideAfter: 3 }, { id: 'sunken-gold', power: 5, tideAfter: 4 }];
     g.table.ai = [{ id: 'deep-current', power: 3, tideAfter: 2 }];
     g.you.hand = ['solar-flare', 'high-noon', 'coral-spark', 'maelstrom', 'deep-current'];
     g.ai.hand = ['x', 'x', 'x', 'x'];
-    g.log.push('Turn 5 — You play Sunken Gold for 4 (tide now +4).');
+    g.chain = { element: 'sun', count: 2 };
+    g.log.push('Turn 5 — You play Sunken Gold for 5 (chain +1) (tide now +4).');
     return g;
   }
   if (name === 'lowtide') {
@@ -349,11 +365,12 @@ export function stageShot(game, name) {
     g.ai.hp = 16;
     g.you.shells = 6;
     g.turn = 7;
-    g.table.you = [{ id: 'pearl-dive', power: 2, tideAfter: -3 }];
-    g.table.ai = [{ id: 'moonlit-tide', power: 7, tideAfter: -4 }, { id: 'eclipse', power: 8, tideAfter: -4 }];
+    g.table.you = [{ id: 'pearl-dive', power: 4, tideAfter: -3 }];
+    g.table.ai = [{ id: 'moonlit-tide', power: 7, tideAfter: -4 }, { id: 'eclipse', power: 9, tideAfter: -4 }];
     g.you.hand = ['eclipse', 'moonlit-tide', 'tidepool-lure', 'anchor-drop', 'storm-surge'];
     g.ai.hand = ['x', 'x', 'x', 'x', 'x'];
-    g.log.push('Turn 7 — Mirelle plays Eclipse for 8 (tide now -4).');
+    g.chain = { element: 'moon', count: 1 };
+    g.log.push('Turn 7 — Mirelle plays Eclipse for 9 (chain +1) (tide now -4).');
     return g;
   }
   if (name === 'victory') {
@@ -364,6 +381,7 @@ export function stageShot(game, name) {
     g.winner = 'you';
     g.table.you = [{ id: 'high-noon', power: 8, tideAfter: 5 }];
     g.table.ai = [];
+    g.chain = { element: 'sun', count: 1 };
     g.log.push('Turn 9 — You play High Noon for 8 (tide now +5).');
     g.log.push('Turn 9 — You rule the tide — victory!');
     return g;

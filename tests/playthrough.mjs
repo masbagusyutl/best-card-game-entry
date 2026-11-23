@@ -12,7 +12,7 @@ import { choosePlay } from '../game/src/ai.js';
 import { cardDef } from '../game/src/cards.js';
 import { START_HP } from '../game/src/engine.js';
 
-const MATCHES = 30;
+const MATCHES = 40;
 const MAX_TURNS = 80;
 
 let failures = 0;
@@ -65,6 +65,31 @@ function playOneMatch(seed) {
 }
 
 console.log(`Tidebound headless playthrough — ${MATCHES} matches, seeds 1..${MATCHES}`);
+
+// Tide Chain unit checks: consecutive same-element plays build momentum.
+{
+  const g = newGame(99);
+  g.you.hand = ['ember-cutlass', 'solar-flare', 'deep-current'];
+  g.you.shells = 10;
+  g.tide = 0;
+  const first = playCard(g, 'you', 0); // Ember Cutlass, Sun, base 3
+  check(first && first.power === 3, 'chain: first Sun strikes base 3');
+  const second = playCard(g, 'you', 0); // Solar Flare, Sun, base 5 + chain 1
+  check(second && second.power === 6, 'chain: second Sun strikes 5+1=6');
+  check(g.chain.element === 'sun' && g.chain.count === 2, 'chain: Sun x2 after two Suns');
+  const third = playCard(g, 'you', 0); // Deep Current, Moon: breaks the chain
+  check(third && third.power === 3, 'chain: Moon breaks the chain at base 3');
+  check(g.chain.element === 'moon' && g.chain.count === 1, 'chain: fresh Moon x1');
+  const again = newGame(99);
+  again.you.hand = ['solar-flare', 'high-noon', 'eclipse'];
+  again.you.shells = 10;
+  again.tide = 4; // high tide: Sun +2
+  const a1 = playCard(again, 'you', 0); // 5+2 = 7
+  check(a1 && a1.power === 7, 'chain: tide bonus and chain stack (5+2=7 first)');
+  const a2 = playCard(again, 'you', 0); // 6+2+1 = 9
+  check(a2 && a2.power === 9, 'chain: second Sun stacks tide +2 and chain +1 (6+2+1=9)');
+}
+
 for (let seed = 1; seed <= MATCHES; seed++) {
   const game = playOneMatch(seed);
   winners[game.winner] += 1;
